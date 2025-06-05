@@ -6,8 +6,8 @@
     },
     "local": {
       "host": "http://localhost:3000",
-      "appName": "YourTestAppName",
-      "token": "your-jwt-here"
+      "appName": "MTSBA",
+      "token": "ZH1E4GxaohhmWoYcja2DHGAXKc7b/o1fyX/UM7Ls3eu0z2t6CaQlQhAtyEWisZ9RI/MWmFtESGHqCrc5hp9mbA=="
     },
     "staging": {
       "host": "https://staging-api.yourdomain.com",

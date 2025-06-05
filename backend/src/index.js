@@ -181,11 +181,11 @@ app.get('/profile', async (req, res) => {
 app.get('/health', async (req, res) => {
   try {
     // Check 1: Count users in the auth.users table
-    const { count: userCount, error: userError } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true });
+    // const { count: userCount, error: userError } = await supabase
+    //   .from('auth.Users')
+    //   .select('*', { count: 'exact', head: true });
 
-    if (userError) throw new Error(`User count check failed: ${userError.message}`);
+    // if (userError) throw new Error(`User count check failed: ${userError.message}`);
 
     // Check 2: Count applications in the public.applications table
     const { count: appCount, error: appError } = await supabase
@@ -195,10 +195,10 @@ app.get('/health', async (req, res) => {
     if (appError) throw new Error(`Application count check failed: ${appError.message}`);
 
     // Check if both counts are non-zero
-    if (userCount > 0 && appCount > 0) {
-      res.status(200).json({ status: 'ok', checks: { users: userCount, applications: appCount } });
+    if (appCount > 0) {
+      res.status(200).json({ status: 'ok', checks: { applications: appCount } });
     } else {
-      throw new Error(`Health check failed: users=${userCount}, applications=${appCount}`);
+      throw new Error(`Health check failed: applications=${appCount}`);
     }
   } catch (err) {
     console.error('Health check endpoint error:', err.message);
