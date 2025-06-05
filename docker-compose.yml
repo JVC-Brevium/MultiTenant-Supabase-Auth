@@ -1,12 +1,11 @@
 
-version: '3.8'
+#version: '3.8'
 
 services:
   api:
     container_name: sae_backend
-    build: 
+    build:
       context: ./backend
-    image: sae_backend:latest
     ports:
       - "3000:3000"
 #    environment:
@@ -17,7 +16,7 @@ services:
       - ./backend/.env
     healthcheck:
       # Use curl to hit the /health endpoint. Add the -f flag to ensure it fails on HTTP errors.
-      test: ["CMD", "-f", "curl", "http://localhost:3000/health"] 
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -25,9 +24,8 @@ services:
 
   frontend:
     container_name: sae_frontend
-    build: 
+    build:
       context: ./frontend
-    image: sae_frontend:latest
     ports:
       - "5173:5173"
     env_file:
