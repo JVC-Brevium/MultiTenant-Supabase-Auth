@@ -15,6 +15,13 @@ services:
 #      - SUPABASE_JWT_SECRET
     env_file:
       - ./backend/.env
+    healthcheck:
+      # Use curl to hit the /health endpoint. Add the -f flag to ensure it fails on HTTP errors.
+      test: ["CMD", "curl", "http://localhost:3000/health"] #, "-f"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   frontend:
     container_name: sae_frontend
