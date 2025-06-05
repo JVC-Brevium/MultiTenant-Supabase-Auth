@@ -17,7 +17,7 @@ services:
       - ./backend/.env
     healthcheck:
       # Use curl to hit the /health endpoint. Add the -f flag to ensure it fails on HTTP errors.
-      test: ["CMD", "curl", "http://localhost:3000/health"] #, "-f"
+      test: ["CMD", "-f", "curl", "http://localhost:3000/health"] 
       interval: 30s
       timeout: 10s
       retries: 3
