@@ -1,0 +1,61 @@
+@host = {{host}}
+@appName = {{appName}}
+@email = {{email}}
+@password = {{password}}
+
+###
+# @name registerSuccess
+# Positive Test: Register a new user successfully
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "AppToRegisterWith": "{{appName}}"
+}
+
+###
+# @name registerMissingEmail
+# Negative Test: Attempt to register with a missing email
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "password": "{{password}}",
+  "AppToRegisterWith": "{{appName}}"
+}
+
+###
+# @name registerMissingPassword
+# Negative Test: Attempt to register with a missing password
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "AppToRegisterWith": "{{appName}}"
+}
+
+###
+# @name registerMissingApp
+# Negative Test: Attempt to register with a missing AppToRegisterWith
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+# @name registerInvalidApp
+# Negative Test: Attempt to register with an application that does not exist
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "AppToRegisterWith": "NonExistentApp"
+}

@@ -1,0 +1,9 @@
+@host = {{host}}
+
+###
+# @name healthCheck
+# Positive/Negative Test: Check the health of the API
+# This endpoint is designed to return a 200 status code if healthy
+# and a 503 status code if unhealthy.
+# The result depends entirely on the state of the connected database.
+GET {{host}}/health

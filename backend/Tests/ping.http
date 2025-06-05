@@ -1,0 +1,34 @@
+@host = {{host}}
+@appName = {{appName}}
+@token = {{token}}
+
+###
+# @name pingSuccess
+# Positive Test: Ping the endpoint with a valid token and app name
+# Note: You must generate a valid JWT for the target application and place it
+# in the .vscode/settings.json file under the "token" variable.
+GET {{host}}/ping?AppToRegisterWith={{appName}}
+Authorization: Bearer {{token}}
+
+###
+# @name pingInvalidToken
+# Negative Test: Ping the endpoint with an invalid or expired token
+GET {{host}}/ping?AppToRegisterWith={{appName}}
+Authorization: Bearer an-invalid-or-expired-token
+
+###
+# @name pingMissingToken
+# Negative Test: Ping the endpoint with no token
+GET {{host}}/ping?AppToRegisterWith={{appName}}
+
+###
+# @name pingMissingApp
+# Negative Test: Ping the endpoint with a missing AppToRegisterWith query parameter
+GET {{host}}/ping
+Authorization: Bearer {{token}}
+
+###
+# @name pingInvalidApp
+# Negative Test: Ping the endpoint with an application that does not exist
+GET {{host}}/ping?AppToRegisterWith=NonExistentApp
+Authorization: Bearer {{token}}

@@ -1,0 +1,45 @@
+@host = {{host}}
+@appName = {{appName}}
+@email = {{email}}
+
+###
+# @name magicLinkSuccess
+# Positive Test: Request a magic link for a valid user
+POST {{host}}/auth/magic
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "AppToRegisterWith": "{{appName}}"
+}
+
+###
+# @name magicLinkMissingEmail
+# Negative Test: Request a magic link with a missing email
+POST {{host}}/auth/magic
+Content-Type: application/json
+
+{
+  "AppToRegisterWith": "{{appName}}"
+}
+
+###
+# @name magicLinkMissingApp
+# Negative Test: Request a magic link with a missing AppToRegisterWith
+POST {{host}}/auth/magic
+Content-Type: application/json
+
+{
+  "email": "{{email}}"
+}
+
+###
+# @name magicLinkInvalidApp
+# Negative Test: Request a magic link with an application that does not exist
+POST {{host}}/auth/magic
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "AppToRegisterWith": "NonExistentApp"
+}
