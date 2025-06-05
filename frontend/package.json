@@ -1,0 +1,18 @@
+
+{
+  "name": "supabase-auth-frontend",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.4"
+  },
+  "devDependencies": {
+    "vite": "^4.5.0",
+    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.15",
+    "postcss": "^8.4.24"
+  }
+}

@@ -1,0 +1,28 @@
+
+version: '3.8'
+
+services:
+  api:
+    container_name: sae_backend
+    build: 
+      context: ./backend
+    image: sae_backend:latest
+    ports:
+      - "3000:3000"
+#    environment:
+#      - SUPABASE_URL
+#      - SUPABASE_SERVICE_ROLE_KEY
+#      - SUPABASE_JWT_SECRET
+    env_file:
+      - ./backend/.env
+
+  frontend:
+    container_name: sae_frontend
+    build: 
+      context: ./frontend
+    image: sae_frontend:latest
+    ports:
+      - "5173:5173"
+    env_file:
+      - ./frontend/.env
+    command: npm run dev -- --host

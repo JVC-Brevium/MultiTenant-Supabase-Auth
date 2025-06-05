@@ -1,0 +1,27 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Supabase Auth Example</title>
+  <link href="/src/style.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 text-gray-900 p-8 font-sans">
+  <div class="max-w-md mx-auto bg-white p-6 rounded shadow">
+    <h1 class="text-xl font-bold mb-4">Login</h1>
+    <input type="email" id="email" placeholder="Email" class="w-full p-2 border mb-2 rounded"/>
+    <input type="password" id="password" placeholder="Password" class="w-full p-2 border mb-2 rounded"/>
+    <div class="flex space-x-2 mb-4">
+      <button onclick="login()" class="bg-blue-500 text-white px-4 py-2 rounded">Login</button>
+      <button onclick="sendMagic()" class="bg-green-500 text-white px-4 py-2 rounded">Magic Link</button>
+      <button onclick="register()" class="bg-green-500 text-white px-4 py-2 rounded">Register</button>
+    </div>
+    <pre id="output" class="text-sm bg-gray-100 p-2 rounded"></pre>
+    <br/>
+    <br/>
+    <pre id="appInfo" class="text-sm bg-gray-100 p-2 rounded"></pre>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

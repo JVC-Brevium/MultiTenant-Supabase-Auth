@@ -1,0 +1,3 @@
+
+GET {{hostname}}/ping
+Authorization: {{supabaseAnonKey}}
