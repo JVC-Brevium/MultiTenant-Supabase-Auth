@@ -34,73 +34,84 @@ async function getUserByEmail(email) {
   }
   return data;
 }
- 
 
-const { appData, appError } = getAppConnectInfo(applicationName);
-const targetAppSupabase = createClient(targetAppSupaURL, targetAppSupaKey);
+async function initializeApp() {
+  const appData = await getAppConnectInfo(applicationName);
 
-// insertUser.js
-// async function insertUser() {
-//   // Get current authenticated user
-//   const { data: { user }, error: userError } = await targetAppSupabase.auth.getUser();
-   
-//   if (userError || !user) {
-//     console.error('Must be logged in to insert user data');
-//     return;
-//   }
+  if (!appData) {
+    console.error("Initialization failed: Could not get app connection info.");
+    document.getElementById('output').textContent = "Initialization failed: Could not get app connection info.";
+    return;
+  }
 
-//   // Check to see if users row exists  
-//   const { usersData, usersError } = await targetAppSupabase
-//     .from('users')
-//     .select('id')
-//     .eq('id', data.uid)
-//     .single();
+  const targetAppSupabase = createClient(targetAppSupaURL, targetAppSupaKey);
 
-//   // If row doesn't exist, create it.  
-//   if (!usersData) {
-//   const { data, error } = await targetAppSupabase
-//     .from('users') 
-//     .insert([
-//       {
-//         id: user.id,                   
-//         email: user.email,
-//         full_name: 'Jane Doe',
-//         is_admin: false,
-//         created_at: new Date()
-//       }
-//     ])
-//     .select(); // returns inserted row(s)
+  async function insertUser() {
+    const { data: { user }, error: userError } = await targetAppSupabase.auth.getUser();
+    
+    if (userError || !user) {
+      console.error('Must be logged in to insert user data');
+      return;
+    }
 
-//   if (error) {
-//     console.error('Insert error:', error.message);
-//   } else {
-//     console.log('User inserted:', data);
-//   }
-// }
-// };
+    const { data: usersData, error: usersError } = await targetAppSupabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
 
+    if (usersError && usersError.code !== 'PGRST116') {
+        console.error('Error checking for user:', usersError.message);
+        return;
+    }
+    
+    if (!usersData) {
+      const { data, error } = await targetAppSupabase
+        .from('users')
+        .insert([
+          {
+            id: user.id,
+            email: user.email,
+            full_name: 'Jane Doe',
+            is_admin: false,
+            created_at: new Date()
+          }
+        ])
+        .select();
 
-window.register = async () => {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
-  const { data, error } = await targetAppSupabase.auth.signUp({ email, password });
-  document.getElementById('output').textContent = error ? error.message : 'Registration completed successfully';
-  document.getElementById('appInfo').textContent = data ? JSON.stringify(data) : 'No data returned';
-};
+      if (error) {
+        console.error('Insert error:', error.message);
+      } else {
+        console.log('User inserted:', data);
+      }
+    }
+  };
 
-window.login = async () => {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
-  const { data, error } = await targetAppSupabase.auth.signInWithPassword({ email, password });
-  // If login successful, create the users table entry if it doesn't exist.
-  if (!error) insertUser();
-  document.getElementById('output').textContent = error ? error.message : 'Sign in complete.';
-  document.getElementById('appInfo').textContent = data? JSON.stringify(data) : 'no data returned';
-};
+  window.register = async () => {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const { data, error } = await targetAppSupabase.auth.signUp({ email, password });
+    document.getElementById('output').textContent = error ? error.message : 'Registration completed successfully';
+    document.getElementById('appInfo').textContent = data ? JSON.stringify(data) : 'No data returned';
+  };
 
-window.sendMagic = async () => {
-  const email = document.getElementById('email').value;
-  const { error } = await targetAppSupabase.auth.signInWithOtp({ email });
-  document.getElementById('output').textContent = error ? error.message : "Magic link sent.";
-};
+  window.login = async () => {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const { data, error } = await targetAppSupabase.auth.signInWithPassword({ email, password });
+    
+    if (!error && data.user) {
+      await insertUser();
+    }
+    document.getElementById('output').textContent = error ? error.message : 'Sign in complete.';
+    document.getElementById('appInfo').textContent = data ? JSON.stringify(data) : 'no data returned';
+  };
 
+  window.sendMagic = async () => {
+    const email = document.getElementById('email').value;
+    const { error } = await targetAppSupabase.auth.signInWithOtp({ email });
+    document.getElementById('output').textContent = error ? error.message : "Magic link sent.";
+  };
+}
+
+initializeApp();
