@@ -10,9 +10,8 @@ variable "gcp_region" {
 }
 
 variable "docker_image_name" {
-  description = "The full name of the Docker image in Artifact Registry."
+  description = "The full name of the Docker image in Artifact Registry (e.g. us-central1-docker.pkg.dev/your-project-id/sae-repo/sae-backend:latest)."
   type        = string
-  comment     = "Example: us-central1-docker.pkg.dev/your-project-id/sae-repo/sae-backend:latest"
 }
 
 variable "supabase_url" {

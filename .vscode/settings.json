@@ -1,13 +1,13 @@
 {
   "rest-client.environmentVariables": {
     "$shared": {
-      "email": "test-user@example.com",
-      "password": "a-very-secure-password"
+      "email": "j.v.cockrum@gmail.com",
+      "password": "N3wP@$$word!"
     },
     "local": {
       "host": "http://localhost:3000",
-      "appName": "MTSBA",
-      "token": "ZH1E4GxaohhmWoYcja2DHGAXKc7b/o1fyX/UM7Ls3eu0z2t6CaQlQhAtyEWisZ9RI/MWmFtESGHqCrc5hp9mbA=="
+      "appName": "CONTOUR",
+      "token": "yYDEt/x2CI0BI59bLeajlhWBqP8dUgrshdJ0ZSMUTg4NASupJUhSdvy7YTw2/4eMQyMqN5rjp1wXLMkVkNC1Qg=="
     },
     "staging": {
       "host": "https://staging-api.yourdomain.com",
