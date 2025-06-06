@@ -2,6 +2,7 @@
 @appName = {{appName}}
 @email = {{email}}
 @password = {{password}}
+@appName = {{appName}}
 
 ###
 # @name registerSuccess
