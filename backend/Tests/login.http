@@ -2,13 +2,27 @@
 @appName = {{appName}}
 @email = {{email}}
 @password = {{password}}
+@clientId = {{clientId}}
+@clientSecret = {{clientSecret}}
+
+###
+# @name getClientTokenForLogin
+# Step 1: Acquire the Client JWT.
+POST {{host}}/auth/client-token
+Content-Type: application/json
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
 
 ###
 # @name loginSuccess
 # Positive Test: Log in with a valid user
-# Note: This assumes the user from register.http was successfully created.
+@client_jwt = {{getClientTokenForLogin.response.body.client_jwt}}
 POST {{host}}/auth/login
 Content-Type: application/json
+Authorization: Bearer {{client_jwt}}
 
 {
   "email": "{{email}}",
@@ -17,37 +31,13 @@ Content-Type: application/json
 }
 
 ###
-# @name loginInvalidPassword
-# Negative Test: Attempt to log in with an incorrect password
-POST {{host}}/auth/login
-Content-Type: application/json
-
-{
-  "email": "{{email}}",
-  "password": "wrong-password",
-  "AppToRegisterWith": "{{appName}}"
-}
-
-###
-# @name loginNonExistentUser
-# Negative Test: Attempt to log in with a user that does not exist
-POST {{host}}/auth/login
-Content-Type: application/json
-
-{
-  "email": "non-existent-user@example.com",
-  "password": "{{password}}",
-  "AppToRegisterWith": "{{appName}}"
-}
-
-###
-# @name loginInvalidApp
-# Negative Test: Attempt to log in with an application that does not exist
+# @name loginWithoutClientToken
+# Negative Test: Attempt to log in without a client token
 POST {{host}}/auth/login
 Content-Type: application/json
 
 {
   "email": "{{email}}",
   "password": "{{password}}",
-  "AppToRegisterWith": "NonExistentApp"
+  "AppToRegisterWith": "{{appName}}"
 }

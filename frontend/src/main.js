@@ -1,117 +1,138 @@
-import { createClient } from '@supabase/supabase-js';
+// --- Configuration ---
+const VITE_BACKEND_API_URL = import.meta.env.VITE_BACKEND_API_URL;
+const VITE_CLIENT_ID = import.meta.env.VITE_CLIENT_ID;
+const VITE_CLIENT_SECRET = import.meta.env.VITE_CLIENT_SECRET;
+const VITE_APP_NAME = import.meta.env.VITE_APP_NAME;
 
-const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
-const applicationName = import.meta.env.VITE_SUPABASE_APP;
-let targetAppSupaURL = '';
-let targetAppSupaKey = '';
+// --- In-memory token store ---
+let clientJwt = null;
+let userSession = null; // Will hold the full Supabase session object
 
+/**
+ * A helper function for making API calls.
+ * @param {string} endpoint - The API endpoint to call.
+ * @param {string} method - The HTTP method (e.g., 'POST', 'GET').
+ * @param {object} body - The request body.
+ * @param {string} [token=null] - The JWT to include for authorization.
+ * @returns {Promise<object>} The JSON response from the API.
+ */
+async function apiCall(endpoint, method, body, token = null) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
-async function getAppConnectInfo(applicationName) {
-  const { data, error } = await supabase
-    .from('applications')              // your public schema table
-    .select('*')                // select fields
-    .eq('application_name', applicationName)        // condition
-    .single();                  // expect exactly one row
-  targetAppSupaURL = data.supabase_url;
-  targetAppSupaKey = data.supabase_anonymous_key;
-  document.getElementById('appInfo').textContent = error ? error.message : JSON.stringify(data.session, null, 2);
-  if (error) {
-    console.error('Error fetching user:', error.message);
-    return null;
+  const response = await fetch(`${VITE_BACKEND_API_URL}${endpoint}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : null,
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    // Throw an error with the message from the API to be caught by the caller
+    throw new Error(data.error || `HTTP error! status: ${response.status}`);
   }
   return data;
 }
 
-async function getUserByEmail(email) {
-  const { data, error } = await supabase
-    .from('users')              // your public schema table
-    .select('*')                // select fields
-    .eq('id', userid)        // condition
-    .single();                  // expect exactly one row
-  if (error) {
-    console.error('Error fetching user:', error.message);
-    return null;
-  }
-  return data;
-}
-
+/**
+ * Step 1: Authenticate the client application itself to get a client JWT.
+ */
 async function initializeApp() {
-  const appData = await getAppConnectInfo(applicationName);
+  try {
+    console.log("Initializing app and getting client token...");
+    const data = await apiCall('/auth/client-token', 'POST', {
+      clientId: VITE_CLIENT_ID,
+      clientSecret: VITE_CLIENT_SECRET,
+    });
+    clientJwt = data.client_jwt;
+    console.log("Client token acquired successfully.");
+    document.getElementById('output').textContent = 'Client initialized. Ready for user authentication.';
+  } catch (error) {
+    console.error('Failed to initialize client:', error.message);
+    document.getElementById('output').textContent = `Error: ${error.message}`;
+  }
+}
 
-  if (!appData) {
-    console.error("Initialization failed: Could not get app connection info.");
-    document.getElementById('output').textContent = "Initialization failed: Could not get app connection info.";
+// --- User Authentication Functions ---
+
+window.register = async () => {
+  if (!clientJwt) {
+    document.getElementById('output').textContent = 'Client not initialized.';
     return;
   }
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  try {
+    const data = await apiCall('/auth/register', 'POST', {
+      email,
+      password,
+      AppToRegisterWith: VITE_APP_NAME,
+    }, clientJwt);
+    document.getElementById('output').textContent = 'Registration successful. Please check your email to confirm.';
+    document.getElementById('appInfo').textContent = JSON.stringify(data, null, 2);
+  } catch (error) {
+    document.getElementById('output').textContent = `Error: ${error.message}`;
+  }
+};
 
-  const targetAppSupabase = createClient(targetAppSupaURL, targetAppSupaKey);
+window.login = async () => {
+  if (!clientJwt) {
+    document.getElementById('output').textContent = 'Client not initialized.';
+    return;
+  }
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  try {
+    const data = await apiCall('/auth/login', 'POST', {
+      email,
+      password,
+      AppToRegisterWith: VITE_APP_NAME,
+    }, clientJwt);
+    userSession = data; // Store the full session object
+    document.getElementById('output').textContent = 'Login successful!';
+    document.getElementById('appInfo').textContent = JSON.stringify(userSession, null, 2);
+  } catch (error) {
+    document.getElementById('output').textContent = `Error: ${error.message}`;
+  }
+};
 
-  async function insertUser() {
-    const { data: { user }, error: userError } = await targetAppSupabase.auth.getUser();
-    
-    if (userError || !user) {
-      console.error('Must be logged in to insert user data');
-      return;
-    }
+window.sendMagic = async () => {
+  if (!clientJwt) {
+    document.getElementById('output').textContent = 'Client not initialized.';
+    return;
+  }
+  const email = document.getElementById('email').value;
+  try {
+    const data = await apiCall('/auth/magic', 'POST', {
+      email,
+      AppToRegisterWith: VITE_APP_NAME,
+    }, clientJwt);
+    document.getElementById('output').textContent = data.message;
+  } catch (error) {
+    document.getElementById('output').textContent = `Error: ${error.message}`;
+  }
+};
 
-    const { data: usersData, error: usersError } = await targetAppSupabase
-      .from('users')
-      .select('id')
-      .eq('id', user.id)
-      .single();
+// --- Authenticated User Functions ---
 
-    if (usersError && usersError.code !== 'PGRST116') {
-        console.error('Error checking for user:', usersError.message);
+window.getProfile = async () => {
+    if (!userSession || !userSession.access_token) {
+        document.getElementById('output').textContent = 'You must be logged in to get a profile.';
         return;
     }
-    
-    if (!usersData) {
-      const { data, error } = await targetAppSupabase
-        .from('users')
-        .insert([
-          {
-            id: user.id,
-            email: user.email,
-            full_name: 'Jane Doe',
-            is_admin: false,
-            created_at: new Date()
-          }
-        ])
-        .select();
-
-      if (error) {
-        console.error('Insert error:', error.message);
-      } else {
-        console.log('User inserted:', data);
-      }
+    try {
+        // Note: The endpoint requires the AppToRegisterWith as a query parameter for GET requests
+        const endpoint = `/profile?AppToRegisterWith=${VITE_APP_NAME}`;
+        const data = await apiCall(endpoint, 'GET', null, userSession.access_token);
+        document.getElementById('output').textContent = 'Profile data fetched successfully.';
+        document.getElementById('appInfo').textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+        document.getElementById('output').textContent = `Error: ${error.message}`;
     }
-  };
+};
 
-  window.register = async () => {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const { data, error } = await targetAppSupabase.auth.signUp({ email, password });
-    document.getElementById('output').textContent = error ? error.message : 'Registration completed successfully';
-    document.getElementById('appInfo').textContent = data ? JSON.stringify(data) : 'No data returned';
-  };
 
-  window.login = async () => {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const { data, error } = await targetAppSupabase.auth.signInWithPassword({ email, password });
-    
-    if (!error && data.user) {
-      await insertUser();
-    }
-    document.getElementById('output').textContent = error ? error.message : 'Sign in complete.';
-    document.getElementById('appInfo').textContent = data ? JSON.stringify(data) : 'no data returned';
-  };
-
-  window.sendMagic = async () => {
-    const email = document.getElementById('email').value;
-    const { error } = await targetAppSupabase.auth.signInWithOtp({ email });
-    document.getElementById('output').textContent = error ? error.message : "Magic link sent.";
-  };
-}
-
+// --- Initial Load ---
 initializeApp();

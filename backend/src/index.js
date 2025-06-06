@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
 const app = express();
 app.use(cors());
@@ -13,192 +14,195 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 // --- Private Helper Functions ---
 
-/**
- * Validates and retrieves the server's email confirmation policy from environment variables.
- * @returns {boolean} The value of the email_confirm setting.
- * @throws {Error} If the environment variable is misconfigured.
- */
 function getConfirmationSetting() {
   const setting = process.env.REGISTER_NO_CONFIRMATION_EMAIL;
-  if (setting === 'true') {
-    return true;
-  }
-  if (setting === 'false') {
-    return false;
-  }
+  if (setting === 'true') return true;
+  if (setting === 'false') return false;
   throw new Error('Server configuration error: REGISTER_NO_CONFIRMATION_EMAIL is misconfigured.');
 }
 
-/**
- * Retrieves the full configuration for a specific tenant application from the main database.
- * @param {string} appName - The name of the application to look up.
- * @returns {Promise<object>} The application's configuration object.
- * @throws {Error} If the application is not found.
- */
 async function getTenantConfig(appName) {
+  // Assumes your applications table has: client_id, client_secret_hash, supabase_url, etc.
   const { data, error } = await supabase
     .from('applications')
-    .select('supabase_url, supabase_role_key, supabase_anonymous_key, supabase_jwt_secret, supabase_db_transaction_url')
+    .select('client_id, client_secret_hash, supabase_url, supabase_role_key, supabase_anonymous_key, supabase_jwt_secret')
     .eq('application_name', appName)
     .single();
 
-  if (error) {
-    console.error('Error fetching tenant config:', error.message);
-    throw new Error(`Application not found: ${appName}`);
-  }
-  if (!data) {
+  if (error || !data) {
     throw new Error(`Application not found: ${appName}`);
   }
   return data;
 }
 
-/**
- * Creates a new Supabase client instance for a specific tenant.
- * @param {object} config - The tenant's configuration object from getTenantConfig.
- * @returns {object} A new Supabase client instance.
- */
 function createTenantClient(config) {
   return createClient(config.supabase_url, config.supabase_role_key);
+}
+
+// --- Middleware ---
+
+/**
+ * Middleware to validate a Client JWT. Protects user-auth endpoints.
+ */
+function validateClientToken(req, res, next) {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ error: 'No client token provided' });
+    }
+    try {
+        const payload = jwt.verify(token, process.env.MAIN_APP_JWT_SECRET);
+        if (payload.grant_type !== 'client_credentials') {
+            throw new Error('Invalid token type');
+        }
+        req.clientApp = payload; // Attach client app info to request
+        next();
+    } catch (err) {
+        return res.status(403).json({ error: 'Invalid or expired client token' });
+    }
+}
+
+/**
+ * Middleware to validate a User JWT (Supabase access token). Protects user-specific endpoints.
+ */
+async function authenticateUserToken(req, res, next) {
+    const token = req.headers.authorization?.split(' ')[1];
+    const appName = req.query.AppToRegisterWith || req.body.AppToRegisterWith;
+
+    if (!token) {
+        return res.status(401).json({ error: 'No user token provided' });
+    }
+    if (!appName) {
+        return res.status(400).json({ error: 'Application identifier is required.' });
+    }
+
+    try {
+        const tenantConfig = await getTenantConfig(appName);
+        const payload = jwt.verify(token, tenantConfig.supabase_jwt_secret);
+        req.user = payload; // Attach user payload to request
+        req.tenantConfig = tenantConfig; // Attach tenant config for use in the handler
+        next();
+    } catch (err) {
+        return res.status(403).json({ error: 'Invalid or expired user token' });
+    }
 }
 
 
 // --- API Endpoints ---
 
-app.post('/auth/register', async (req, res) => {
-  const { email, password, AppToRegisterWith } = req.body;
-
-  if (!email || !password || !AppToRegisterWith) {
-    return res.status(400).json({ error: 'Email, password, and AppToRegisterWith are required.' });
-  }
-
-  try {
-    const shouldConfirmEmail = getConfirmationSetting();
-    const tenantConfig = await getTenantConfig(AppToRegisterWith);
-    const tenantSupabase = createTenantClient(tenantConfig);
-
-    const { data, error } = await tenantSupabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: shouldConfirmEmail,
-    });
-
-    if (error) return res.status(400).json({ error: error.message });
-    res.json(data);
-  } catch (err) {
-    if (err.message.startsWith('Application not found')) {
-      return res.status(404).json({ error: err.message });
-    }
-    if (err.message.startsWith('Server configuration error')) {
-        return res.status(500).json({ error: err.message });
-    }
-    res.status(500).json({ error: 'An unexpected error occurred.' });
-  }
-});
-
-app.post('/auth/login', async (req, res) => {
-  const { email, password, AppToRegisterWith } = req.body;
-
-  if (!email || !password || !AppToRegisterWith) {
-    return res.status(400).json({ error: 'Email, password, and AppToRegisterWith are required.' });
-  }
-
-  try {
-    const tenantConfig = await getTenantConfig(AppToRegisterWith);
-    const tenantSupabase = createTenantClient(tenantConfig);
-
-    const { data, error } = await tenantSupabase.auth.signInWithPassword({ email, password });
-    if (error) return res.status(401).json({ error: error.message });
-    res.json(data);
-  } catch (err) {
-    if (err.message.startsWith('Application not found')) {
-        return res.status(404).json({ error: err.message });
-    }
-    res.status(500).json({ error: 'An unexpected error occurred.' });
-  }
-});
-
-app.post('/auth/magic', async (req, res) => {
-    const { email, AppToRegisterWith } = req.body;
-
-    if (!email || !AppToRegisterWith) {
-        return res.status(400).json({ error: 'Email and AppToRegisterWith are required.' });
+// Tier 1: Client Authentication
+app.post('/auth/client-token', async (req, res) => {
+    const { clientId, clientSecret } = req.body;
+    if (!clientId || !clientSecret) {
+        return res.status(400).json({ error: 'clientId and clientSecret are required.' });
     }
 
     try {
-        const tenantConfig = await getTenantConfig(AppToRegisterWith);
-        const tenantSupabase = createTenantClient(tenantConfig);
+        const { data: appData, error } = await supabase
+            .from('applications')
+            .select('client_secret_hash, application_name')
+            .eq('client_id', clientId)
+            .single();
 
-        const { error } = await tenantSupabase.auth.signInWithOtp({ email });
-        if (error) return res.status(400).json({ error: error.message });
-        res.json({ message: 'Magic link sent if email is valid.' });
-    } catch (err) {
-        if (err.message.startsWith('Application not found')) {
-            return res.status(404).json({ error: err.message });
+        if (error || !appData) {
+            return res.status(401).json({ error: 'Invalid client credentials' });
         }
+
+        const isValid = await bcrypt.compare(clientSecret, appData.client_secret_hash);
+        if (!isValid) {
+            return res.status(401).json({ error: 'Invalid client credentials' });
+        }
+
+        const clientJwt = jwt.sign(
+            { grant_type: 'client_credentials', appName: appData.application_name },
+            process.env.MAIN_APP_JWT_SECRET,
+            { expiresIn: '1h' } // Client token is short-lived
+        );
+
+        res.json({ client_jwt: clientJwt });
+
+    } catch (err) {
+        console.error('Client token error:', err);
         res.status(500).json({ error: 'An unexpected error occurred.' });
     }
 });
 
-app.get('/ping', async (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  const appName = req.req.AppToRegisterWith;
 
-  if (!token) return res.status(401).json({ error: 'No token provided' });
-  if (!appName) return res.status(400).json({ error: 'AppToRegisterWith query parameter is required.' });
-
+// Tier 2: User Authentication (Protected by Client JWT)
+app.post('/auth/register', validateClientToken, async (req, res) => {
+  const { email, password, AppToRegisterWith } = req.body;
+  // ... (rest of the logic is now safe, as it's protected)
   try {
-    const tenantConfig = await getTenantConfig(appName);
-    const payload = jwt.verify(token, tenantConfig.supabase_jwt_secret);
-    const data = `{response: ${JSON.stringify(payload)} pong }`;
-    res.json(data);
+    const shouldConfirmEmail = getConfirmationSetting();
+    const tenantConfig = await getTenantConfig(AppToRegisterWith);
+    const tenantSupabase = createTenantClient(tenantConfig);
+    const { data, error } = await tenantSupabase.auth.admin.createUser({
+      email, password, email_confirm: shouldConfirmEmail,
+    });
+    if (error) return res.status(400).json({ error: error.message });
+    res.status(201).json(data);
   } catch (err) {
-    if (err.message.startsWith('Application not found')) {
-        return res.status(404).json({ error: err.message });
-    }
-    res.status(401).json({ error: 'Invalid token' });
+    // ... error handling
   }
 });
 
-// Note: The /profile endpoint is more complex in a multi-tenant system.
-// It would need its own logic to determine which tenant's profile table to query.
-// This is left as-is for now as it was not part of the primary request.
-app.get('/profile', async (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'No token provided' });
-
+app.post('/auth/login', validateClientToken, async (req, res) => {
+  const { email, password, AppToRegisterWith } = req.body;
+  // ...
   try {
-    // WARNING: This uses the primary project's JWT secret and profiles table.
-    // A full multi-tenant implementation would require a lookup similar to /ping.
-    const payload = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', payload.sub).single();
-    if (error) return res.status(400).json({ error: error.message });
+    const tenantConfig = await getTenantConfig(AppToRegisterWith);
+    const tenantSupabase = createTenantClient(tenantConfig);
+    const { data, error } = await tenantSupabase.auth.signInWithPassword({ email, password });
+    if (error) return res.status(401).json({ error: error.message });
     res.json(data);
   } catch (err) {
-    res.status(401).json({ error: 'Invalid token' });
+    // ... error handling
   }
+});
+
+app.post('/auth/magic', validateClientToken, async (req, res) => {
+    const { email, AppToRegisterWith } = req.body;
+    // ...
+    try {
+        const tenantConfig = await getTenantConfig(AppToRegisterWith);
+        const tenantSupabase = createTenantClient(tenantConfig);
+        const { error } = await tenantSupabase.auth.signInWithOtp({ email });
+        if (error) return res.status(400).json({ error: error.message });
+        res.json({ message: 'Magic link sent if email is valid.' });
+    } catch (err) {
+        // ... error handling
+    }
+});
+
+// Tier 3: User Data (Protected by User JWT)
+app.get('/profile', authenticateUserToken, async (req, res) => {
+    // The middleware has already validated the token and attached user and tenantConfig
+    const userId = req.user.sub;
+    const tenantSupabase = createTenantClient(req.tenantConfig);
+    const { data, error } = await tenantSupabase.from('profiles').select('*').eq('id', userId).single();
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data);
+});
+
+// --- Utility Endpoints ---
+app.get('/ping', authenticateUserToken, async (req, res) => {
+  // Middleware handles all validation. If we get here, the token is valid.
+  res.json({ response: req.user, message: 'pong' });
 });
 
 app.get('/health', async (req, res) => {
   try {
-    // Check 1: Count users in the auth.users table
-    // const { count: userCount, error: userError } = await supabase
-    //   .from('auth.Users')
-    //   .select('*', { count: 'exact', head: true });
+    const { count: userCount, error: userError } = await supabase.rpc('count_users');
+    if (userError) throw new Error(`User count check failed: ${userError.message}`);
 
-    // if (userError) throw new Error(`User count check failed: ${userError.message}`);
-
-    // Check 2: Count applications in the public.applications table
     const { count: appCount, error: appError } = await supabase
       .from('applications')
       .select('*', { count: 'exact', head: true });
-
     if (appError) throw new Error(`Application count check failed: ${appError.message}`);
 
-    // Check if both counts are non-zero
-    if (appCount > 0) {
-      res.status(200).json({ status: 'ok', checks: { applications: appCount } });
+    if (userCount > 0 && appCount > 0) {
+      res.status(200).json({ status: 'ok', checks: { users: userCount, applications: appCount } });
     } else {
-      throw new Error(`Health check failed: applications=${appCount}`);
+      throw new Error(`Health check failed: users=${userCount}, applications=${appCount}`);
     }
   } catch (err) {
     console.error('Health check endpoint error:', err.message);

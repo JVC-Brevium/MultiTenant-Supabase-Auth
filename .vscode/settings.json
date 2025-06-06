@@ -1,23 +1,23 @@
 {
   "rest-client.environmentVariables": {
     "$shared": {
-      "email": "j.v.cockrum@gmail.com",
-      "password": "N3wP@$$word!"
+      "email": "test-user@example.com",
+      "password": "a-very-secure-password",
+      "user_jwt": "your-user-jwt-here",
+      "clientId": "your-client-id-here",
+      "clientSecret": "your-raw-client-secret-here"
     },
     "local": {
       "host": "http://localhost:3000",
-      "appName": "CONTOUR",
-      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5na3p5cWR5d3RsdGNnb2F0Z3N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMjE4NzAsImV4cCI6MjA1OTc5Nzg3MH0.r8GTK4DEw6gfSdq8pfGmQqJi5y3CaNhLIW5O4EiGsbY"
+      "appName": "YourTestAppName"
     },
     "staging": {
       "host": "https://staging-api.yourdomain.com",
-      "appName": "YourStagingAppName",
-      "token": "your-jwt-here"
+      "appName": "YourStagingAppName"
     },
     "production": {
       "host": "https://api.yourdomain.com",
-      "appName": "YourProductionAppName",
-      "token": "your-jwt-here"
+      "appName": "YourProductionAppName"
     }
   }
 }

@@ -1,0 +1,36 @@
+@host = {{host}}
+@clientId = {{clientId}}
+@clientSecret = {{clientSecret}}
+
+###
+# @name getClientTokenSuccess
+# Positive Test: Get a client JWT with valid credentials
+POST {{host}}/auth/client-token
+Content-Type: application/json
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
+
+###
+# @name getClientTokenInvalidSecret
+# Negative Test: Attempt to get a token with an invalid secret
+POST {{host}}/auth/client-token
+Content-Type: application/json
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "invalid-secret"
+}
+
+###
+# @name getClientTokenInvalidId
+# Negative Test: Attempt to get a token with an invalid client ID
+POST {{host}}/auth/client-token
+Content-Type: application/json
+
+{
+  "clientId": "invalid-id",
+  "clientSecret": "{{clientSecret}}"
+}

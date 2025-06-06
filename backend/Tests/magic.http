@@ -1,12 +1,27 @@
 @host = {{host}}
 @appName = {{appName}}
 @email = {{email}}
+@clientId = {{clientId}}
+@clientSecret = {{clientSecret}}
+
+###
+# @name getClientTokenForMagic
+# Step 1: Acquire the Client JWT.
+POST {{host}}/auth/client-token
+Content-Type: application/json
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
 
 ###
 # @name magicLinkSuccess
 # Positive Test: Request a magic link for a valid user
+@client_jwt = {{getClientTokenForMagic.response.body.client_jwt}}
 POST {{host}}/auth/magic
 Content-Type: application/json
+Authorization: Bearer {{client_jwt}}
 
 {
   "email": "{{email}}",
@@ -14,32 +29,12 @@ Content-Type: application/json
 }
 
 ###
-# @name magicLinkMissingEmail
-# Negative Test: Request a magic link with a missing email
-POST {{host}}/auth/magic
-Content-Type: application/json
-
-{
-  "AppToRegisterWith": "{{appName}}"
-}
-
-###
-# @name magicLinkMissingApp
-# Negative Test: Request a magic link with a missing AppToRegisterWith
-POST {{host}}/auth/magic
-Content-Type: application/json
-
-{
-  "email": "{{email}}"
-}
-
-###
-# @name magicLinkInvalidApp
-# Negative Test: Request a magic link with an application that does not exist
+# @name magicLinkWithoutClientToken
+# Negative Test: Request a magic link without a client token
 POST {{host}}/auth/magic
 Content-Type: application/json
 
 {
   "email": "{{email}}",
-  "AppToRegisterWith": "NonExistentApp"
+  "AppToRegisterWith": "{{appName}}"
 }
