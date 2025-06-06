@@ -1,4 +1,6 @@
 require('dotenv').config();
+const https = require('https');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
@@ -15,17 +17,17 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 // --- Private Helper Functions ---
 
 function getConfirmationSetting() {
-  const setting = process.env.REGISTER_NO_CONFIRMATION_EMAIL;
+  const setting = process.env.REGISTER_CONFIRMATION_EMAIL;
   if (setting === 'true') return true;
   if (setting === 'false') return false;
-  throw new Error('Server configuration error: REGISTER_NO_CONFIRMATION_EMAIL is misconfigured.');
+  throw new Error('Server configuration error: REGISTER_CONFIRMATION_EMAIL is misconfigured.');
 }
 
 async function getTenantConfig(appName) {
-  // Assumes your applications table has: client_id, client_secret_hash, supabase_url, etc.
+  // Assumes your applications table has: application_uid, client_app_secret, supabase_url, etc.
   const { data, error } = await supabase
     .from('applications')
-    .select('client_id, client_secret_hash, supabase_url, supabase_role_key, supabase_anonymous_key, supabase_jwt_secret')
+    .select('application_uid, client_app_secret, supabase_url, supabase_role_key, supabase_anonymous_key, supabase_jwt_secret')
     .eq('application_name', appName)
     .single();
 
@@ -50,7 +52,7 @@ function validateClientToken(req, res, next) {
         return res.status(401).json({ error: 'No client token provided' });
     }
     try {
-        const payload = jwt.verify(token, process.env.MAIN_APP_JWT_SECRET);
+        const payload = jwt.verify(token, process.env.APP_CLIENT_SECRET);
         if (payload.grant_type !== 'client_credentials') {
             throw new Error('Invalid token type');
         }
@@ -99,22 +101,22 @@ app.post('/auth/client-token', async (req, res) => {
     try {
         const { data: appData, error } = await supabase
             .from('applications')
-            .select('client_secret_hash, application_name')
-            .eq('client_id', clientId)
+            .select('client_app_secret, application_name')
+            .eq('application_uid', clientId)
             .single();
 
         if (error || !appData) {
-            return res.status(401).json({ error: 'Invalid client credentials' });
+            return res.status(401).json({ error: 'Invalid client credentials - query to applications', message: error.message, other: error.details });
         }
 
-        const isValid = await bcrypt.compare(clientSecret, appData.client_secret_hash);
+        const isValid = await bcrypt.compare(clientSecret, appData.client_app_secret);
         if (!isValid) {
-            return res.status(401).json({ error: 'Invalid client credentials' });
+            return res.status(401).json({ error: 'Invalid client credentials - bcrypt comparison.' });
         }
 
         const clientJwt = jwt.sign(
             { grant_type: 'client_credentials', appName: appData.application_name },
-            process.env.MAIN_APP_JWT_SECRET,
+            process.env.APP_CLIENT_SECRET,
             { expiresIn: '1h' } // Client token is short-lived
         );
 
@@ -122,7 +124,7 @@ app.post('/auth/client-token', async (req, res) => {
 
     } catch (err) {
         console.error('Client token error:', err);
-        res.status(500).json({ error: 'An unexpected error occurred.' });
+        res.status(500).json({ error: 'An unexpected error occurred.', message: err.message, stack: err.stack });
     }
 });
 
@@ -139,9 +141,11 @@ app.post('/auth/register', validateClientToken, async (req, res) => {
       email, password, email_confirm: shouldConfirmEmail,
     });
     if (error) return res.status(400).json({ error: error.message });
-    res.status(201).json(data);
+    else
+    console.log(data);
+    return res.status(201).json(data);
   } catch (err) {
-    // ... error handling
+        return res.status(500).json({ error: 'An unexpected error occurred during registration. ', message: err.message, stack: err.stack });
   }
 });
 
@@ -153,9 +157,38 @@ app.post('/auth/login', validateClientToken, async (req, res) => {
     const tenantSupabase = createTenantClient(tenantConfig);
     const { data, error } = await tenantSupabase.auth.signInWithPassword({ email, password });
     if (error) return res.status(401).json({ error: error.message });
-    res.json(data);
+
+    // If login is successful, check for and create a user profile if it doesn't exist.
+    if (data.user) {
+      const { data: userProfile, error: profileError } = await tenantSupabase
+        .from('users')
+        .select('id')
+        .eq('id', data.user.id)
+        .single();
+
+      // If no profile exists (profileError is expected in this case), create one.
+      if (!userProfile) {
+        const { error: insertError } = await tenantSupabase
+          .from('users')
+          .insert({
+            id: data.user.id,
+            name: data.user.email, // Default name to email
+            is_admin: false,
+            created_at: new Date(),
+          });
+       
+        if (insertError) {
+          // Log the error but don't block the login. The user is still authenticated.
+          console.error('Error creating user profile on-the-fly:', insertError.message);
+          return res.status(500).json({ error: 'An unexpected error occurred during login. ', message: insertError.message, stack: insertError.stack });
+        } else {
+         return res.status(200).json(data);
+        }
+      }
+    }
+    return res.json(data);
   } catch (err) {
-    // ... error handling
+        return res.status(500).json({ error: 'An unexpected error occurred during login. ', message: err.message, stack: err.stack });
   }
 });
 
@@ -210,4 +243,11 @@ app.get('/health', async (req, res) => {
   }
 });
 
-app.listen(3000, () => console.log('API running on http://localhost:3000'));
+const options = {
+  key: fs.readFileSync('key.pem'),
+  cert: fs.readFileSync('cert.pem')
+};
+
+https.createServer(options, app).listen(3000, () => {
+  console.log('API running on https://localhost:3000');
+});
