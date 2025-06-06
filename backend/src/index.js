@@ -141,7 +141,7 @@ app.post('/auth/magic', async (req, res) => {
 
 app.get('/ping', async (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
-  const appName = req.query.AppToRegisterWith;
+  const appName = req.req.AppToRegisterWith;
 
   if (!token) return res.status(401).json({ error: 'No token provided' });
   if (!appName) return res.status(400).json({ error: 'AppToRegisterWith query parameter is required.' });
