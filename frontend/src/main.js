@@ -22,6 +22,9 @@ async function apiCall(endpoint, method, body, token = null) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  console.log(`Making API call to ${endpoint} with method ${method} on ${VITE_BACKEND_API_URL}`);
+  console.log('Request body:', body);
+
   const response = await fetch(`${VITE_BACKEND_API_URL}${endpoint}`, {
     method,
     headers,
