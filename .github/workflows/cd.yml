@@ -55,7 +55,7 @@ jobs:
         with:
           context: ./backend
           push: true
-          tags: ${{ secrets.DOCKOCKER_USERNAME }}/multi-tenant-backend:${{ github.sha }}
+          tags: ${{ secrets.DOCKOCKER_USERNAME }}/multitenant-supabase-auth:${{ github.sha }}
 
       - name: Build and push frontend image
         id: build-frontend
@@ -63,7 +63,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/multi-tenant-frontend:${{ github.sha }}
+          tags: ${{ secrets.DOCKER_USERNAME }}/multitenant-supabase-auth:${{ github.sha }}
 
   deploy:
     name: Deploy to Production
