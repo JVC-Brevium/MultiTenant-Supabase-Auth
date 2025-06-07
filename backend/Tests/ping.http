@@ -1,0 +1,28 @@
+@host = {{host}}
+@appName = {{appName}}
+@user_jwt = {{user_jwt}}
+
+###
+# @name pingSuccess
+# Positive Test: Ping the endpoint with a valid user JWT
+# Note: You must first log in a user (e.g., via the login.http test)
+# and copy their access_token into the 'user_jwt' variable in .vscode/settings.json
+GET {{host}}/ping?AppToRegisterWith={{appName}}
+Authorization: Bearer {{user_jwt}}
+
+###
+# @name pingInvalidToken
+# Negative Test: Ping the endpoint with an invalid or expired user JWT
+GET {{host}}/ping?AppToRegisterWith={{appName}}
+Authorization: Bearer an-invalid-or-expired-user-token
+
+###
+# @name pingMissingToken
+# Negative Test: Ping the endpoint with no user JWT
+GET {{host}}/ping?AppToRegisterWith={{appName}}
+
+###
+# @name pingMissingApp
+# Negative Test: Ping the endpoint with a missing AppToRegisterWith query parameter
+GET {{host}}/ping
+Authorization: Bearer {{user_jwt}}

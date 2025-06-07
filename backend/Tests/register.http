@@ -1,0 +1,57 @@
+@host = {{host}}
+@appName = {{appName}}
+@email = {{email}}
+@password = {{password}}
+@clientId = {{clientId}}
+@clientSecret = {{clientSecret}}
+
+###
+# @name getClientTokenForRegister
+# Step 1: Acquire the Client JWT.
+# The response from this request will be used in the following requests.
+POST {{host}}/auth/client-token
+Content-Type: application/json
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
+
+###
+# @name registerSuccess
+# Positive Test: Register a new user successfully
+@client_jwt = {{getClientTokenForRegister.response.body.client_jwt}}
+POST {{host}}/auth/register
+Content-Type: application/json
+Authorization: Bearer {{client_jwt}}
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "AppToRegisterWith": "{{appName}}"
+}
+
+###
+# @name registerWithoutClientToken
+# Negative Test: Attempt to register without a client token
+POST {{host}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "AppToRegisterWith": "{{appName}}"
+}
+
+###
+# @name registerWithInvalidClientToken
+# Negative Test: Attempt to register with an invalid client token
+POST {{host}}/auth/register
+Content-Type: application/json
+Authorization: Bearer an-invalid-token
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "AppToRegisterWith": "{{appName}}"
+}

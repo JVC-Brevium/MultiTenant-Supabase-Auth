@@ -1,0 +1,5 @@
+gcp_project_id                 = "your-gcp-project-id"
+docker_image_name              = "us-central1-docker.pkg.dev/your-gcp-project-id/sae-repo/sae-backend:latest"
+supabase_url                   = "https://your-supabase-url.supabase.co"
+supabase_service_role_key      = "your-supabase-service-role-key"
+register_no_confirmation_email = "false"

@@ -1,0 +1,43 @@
+@host = {{host}}
+@appName = {{appName}}
+@email = {{email}}
+@password = {{password}}
+@clientId = {{clientId}}
+@clientSecret = {{clientSecret}}
+
+###
+# @name getClientTokenForLogin
+# Step 1: Acquire the Client JWT.
+POST {{host}}/auth/client-token
+Content-Type: application/json
+
+{
+  "clientId": "{{clientId}}",
+  "clientSecret": "{{clientSecret}}"
+}
+
+###
+# @name loginSuccess
+# Positive Test: Log in with a valid user
+@client_jwt = {{getClientTokenForLogin.response.body.client_jwt}}
+POST {{host}}/auth/login
+Content-Type: application/json
+Authorization: Bearer {{client_jwt}}
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "AppToRegisterWith": "{{appName}}"
+}
+
+###
+# @name loginWithoutClientToken
+# Negative Test: Attempt to log in without a client token
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "AppToRegisterWith": "{{appName}}"
+}
